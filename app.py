@@ -43,6 +43,7 @@ list_of_compliments = [
     'zoetic'
 ]
 
+# TODO: Enter your context variables here.  
 @app.route('/compliments')
 def compliments():
     """Shows the user a form to get compliments."""
@@ -51,8 +52,21 @@ def compliments():
 @app.route('/compliments_results')
 def compliments_results():
     """Show the user some compliments."""
+    name = request.args.get('users_name')
+    compliments = request.args.get('wants_compliments')
+    num = int(request.args.get('num_compliments'))
+    
+    listCompliments = []
+    if compliments == 'yes':
+        if num > 0:
+            i = 0 
+            listCompliments = random.sample(list_of_compliments, k=num)
+
     context = {
-        # TODO: Enter your context variables here.
+        'name' : name,
+        'compliments' : compliments,
+        'num' : num,
+        'listCompliments' : listCompliments
     }
 
     return render_template('compliments_results.html', **context)
@@ -67,22 +81,28 @@ animal_to_fact = {
     'parrot': 'Parrots will selflessly help each other out.',
     'mantis shrimp': 'The mantis shrimp has the world\'s fastest punch.',
     'lion': 'Female lions do 90 percent of the hunting.',
-    'narwhal': 'Narwhal tusks are really an "inside out" tooth.'
+    'narwhal': 'Narwhal tusks are really an "inside out" tooth.',
+    'raccoon': 'they are named for their unique hands.',
+    'sabrina': 'The best cat out there.'
 }
 
 @app.route('/animal_facts')
 def animal_facts():
     """Show a form to choose an animal and receive facts."""
 
-    # TODO: Collect the form data and save as variables
+    animal_facts = []
+    selected_animals = request.args.getlist('animal')
+
+    if selected_animals != []:
+        selected_animals = selected_animals[0]
+    else:
+        selected_animals = "None"
 
     context = {
-        # TODO: Enter your context variables here for:
-        # - the list of all animals (get from animal_to_fact)
-        # - the chosen animal fact (may be None if the user hasn't filled out the form yet)
+        'animal_to_fact' : animal_to_fact,
+        'selected_animals' : selected_animals
     }
     return render_template('animal_facts.html', **context)
-
 
 ################################################################################
 # IMAGE FILTER ROUTE
@@ -118,42 +138,45 @@ def apply_filter(file_path, filter_name):
     """Apply a Pillow filter to a saved image."""
     i = Image.open(file_path)
     i.thumbnail((500, 500))
-    i = i.filter(filter_types_dict.get(filter_name))
+
+    if filter_name == 'grayscale':
+        i = ImageOps.grayscale(i)
+    elif filter_name == 'mirror':
+        i = ImageOps.mirror(i)
+    else:
+        i = i.filter(filter_types_dict.get(filter_name))
+
     i.save(file_path)
+
+    
 
 @app.route('/image_filter', methods=['GET', 'POST'])
 def image_filter():
     """Filter an image uploaded by the user, using the Pillow library."""
-    filter_types = filter_types_dict.keys()
 
     if request.method == 'POST':
         
-        # TODO: Get the user's chosen filter type (whichever one they chose in the form) and save
-        # as a variable
-        filter_type = ''
+        filter_type = request.form.get('filter_type')
         
         # Get the image file submitted by the user
         image = request.files.get('users_image')
 
-        # TODO: call `save_image()` on the image & the user's chosen filter type, save the returned
-        # value as the new file path
-
-        # TODO: Call `apply_filter()` on the file path & filter type
-
+        file_path = save_image(image, filter_type)
+        apply_filter(file_path, filter_type)
         image_url = f'/static/images/{image.filename}'
 
         context = {
-            # TODO: Add context variables here for:
-            # - The full list of filter types
-            # - The image URL
+            'filter_types' : filter_types_dict.keys(),
+            'image_url' : image_url
         }
 
         return render_template('image_filter.html', **context)
 
     else: # if it's a GET request
         context = {
-            # TODO: Add context variable here for the full list of filter types
+            'filter_types' : filter_types_dict.keys()
         }
+
         return render_template('image_filter.html', **context)
 
 
@@ -169,16 +192,23 @@ pp = PrettyPrinter(indent=4)
 def gif_search():
     """Show a form to search for GIFs and show resulting GIFs from Tenor API."""
     if request.method == 'POST':
+
         # TODO: Get the search query & number of GIFs requested by the user, store each as a 
         # variable
+        search_query = request.form.get('search_query')
+        gif_num = request.form.get('quantity')
 
         response = requests.get(
             TENOR_URL,
             {
+
                 # TODO: Add in key-value pairs for:
                 # - 'q': the search query
+                "q" : search_query,
                 # - 'key': the API key (defined above)
+                "key" : API_KEY,
                 # - 'limit': the number of GIFs requested
+                "limit" : gif_num
             })
 
         gifs = json.loads(response.content).get('results')
@@ -189,7 +219,6 @@ def gif_search():
 
         # Uncomment me to see the result JSON!
         # pp.pprint(gifs)
-
         return render_template('gif_search.html', **context)
     else:
         return render_template('gif_search.html')
